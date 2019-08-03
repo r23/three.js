@@ -1,41 +1,28 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<title>three.js webvr - htc vive - paint</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-		<style>
-			body {
-				font-family: Monospace;
-				background-color: #101010;
-				color: #fff;
-				margin: 0px;
-				overflow: hidden;
-			}
-			a {
-				color: #f00;
-			}
-		</style>
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<!-- WebXR Device API (For Chrome M76+), expires 09/09/2019 -->
+		<meta http-equiv="origin-trial" content="Ai1/G787sugfmWtk1xQExa8N6OqwDsJyNn+OwpA1J4PozR1lixRYIQ4Tmp00vrGWS8FQQ2iDyqjwaewrOfYvPAUAAABTeyJvcmlnaW4iOiJodHRwczovL3RocmVlanMub3JnOjQ0MyIsImZlYXR1cmUiOiJXZWJYUkRldmljZU03NiIsImV4cGlyeSI6MTU2ODAyMzQ3OH0=">
 	</head>
 	<body>
 
-		<script src="../build/three.js"></script>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - htc vive - paint
+		</div>
 
-		<script src="js/vr/ViveController.js"></script>
-		<script src="js/vr/PaintViveController.js"></script>
-		<script src="js/vr/WebVR.js"></script>
+		<script src="js/vr/HelioWebXRPolyfill.js"></script>
 
-		<script src="js/loaders/OBJLoader.js"></script>
+		<script type="module">
 
-		<script>
+			import * as THREE from '../build/three.module.js';
 
-			WEBVR.checkAvailability().catch( function( message ) {
-
-				document.body.appendChild( WEBVR.getMessageContainer( message ) );
-
-			} );
-
-			//
+			import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+			import { PaintViveController } from './jsm/vr/PaintViveController.js';
+			import { WEBVR } from './jsm/vr/WebVR.js';
 
 			var container;
 			var camera, scene, renderer;
@@ -45,15 +32,11 @@
 			var shapes = {};
 
 			var up = new THREE.Vector3( 0, 1, 0 );
-			var vector = new THREE.Vector3();
 
 			var vector1 = new THREE.Vector3();
 			var vector2 = new THREE.Vector3();
 			var vector3 = new THREE.Vector3();
 			var vector4 = new THREE.Vector3();
-
-			var point4 = new THREE.Vector3();
-			var point5 = new THREE.Vector3();
 
 			init();
 			initGeometry();
@@ -64,21 +47,12 @@
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
 
-				var info = document.createElement( 'div' );
-				info.style.position = 'absolute';
-				info.style.top = '10px';
-				info.style.width = '100%';
-				info.style.textAlign = 'center';
-				info.innerHTML = '<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - htc vive - paint';
-				container.appendChild( info );
-
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0x222222 );
 
 				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 50 );
-				scene.add( camera );
 
-				var geometry = new THREE.BoxGeometry( 0.5, 0.8, 0.5 );
+				var geometry = new THREE.BoxBufferGeometry( 0.5, 0.8, 0.5 );
 				var material = new THREE.MeshStandardMaterial( {
 					color: 0x444444,
 					roughness: 1.0,
@@ -100,7 +74,7 @@
 				scene.add( table );
 				*/
 
-				var geometry = new THREE.PlaneGeometry( 4, 4 );
+				var geometry = new THREE.PlaneBufferGeometry( 4, 4 );
 				var material = new THREE.MeshStandardMaterial( {
 					color: 0x222222,
 					roughness: 1.0,
@@ -119,43 +93,43 @@
 				light.position.set( 0, 6, 0 );
 				light.castShadow = true;
 				light.shadow.camera.top = 2;
-				light.shadow.camera.bottom = -2;
+				light.shadow.camera.bottom = - 2;
 				light.shadow.camera.right = 2;
-				light.shadow.camera.left = -2;
+				light.shadow.camera.left = - 2;
 				light.shadow.mapSize.set( 4096, 4096 );
 				scene.add( light );
 
-				// scene.add( new THREE.DirectionalLightHelper( light ) );
-				// scene.add( new THREE.CameraHelper( light.shadow.camera ) );
+				// scene.add( new DirectionalLightHelper( light ) );
+				// scene.add( new CameraHelper( light.shadow.camera ) );
 
 				//
 
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.shadowMap.enabled = true;
 				renderer.gammaInput = true;
 				renderer.gammaOutput = true;
+				renderer.shadowMap.enabled = true;
+				renderer.vr.enabled = true;
 				container.appendChild( renderer.domElement );
 
-				renderer.vr.enabled = true;
-				renderer.vr.standing = true;
+				document.body.appendChild( WEBVR.createButton( renderer ) );
 
 				// controllers
 
-				controller1 = new THREE.PaintViveController( 0 );
+				controller1 = new PaintViveController( 0 );
 				controller1.standingMatrix = renderer.vr.getStandingMatrix();
 				controller1.userData.points = [ new THREE.Vector3(), new THREE.Vector3() ];
 				controller1.userData.matrices = [ new THREE.Matrix4(), new THREE.Matrix4() ];
 				scene.add( controller1 );
 
-				controller2 = new THREE.PaintViveController( 1 );
+				controller2 = new PaintViveController( 1 );
 				controller2.standingMatrix = renderer.vr.getStandingMatrix();
 				controller2.userData.points = [ new THREE.Vector3(), new THREE.Vector3() ];
 				controller2.userData.matrices = [ new THREE.Matrix4(), new THREE.Matrix4() ];
 				scene.add( controller2 );
 
-				var loader = new THREE.OBJLoader();
+				var loader = new OBJLoader();
 				loader.setPath( 'models/obj/vive-controller/' );
 				loader.load( 'vr_controller_vive_1_5.obj', function ( object ) {
 
@@ -168,12 +142,12 @@
 					controller.castShadow = true;
 					controller.receiveShadow = true;
 
-					// var pivot = new THREE.Group();
-					// var pivot = new THREE.Mesh( new THREE.BoxGeometry( 0.01, 0.01, 0.01 ) );
-					var pivot = new THREE.Mesh( new THREE.IcosahedronGeometry( 0.01, 2 ) );
+					// var pivot = new Group();
+					// var pivot = new THREE.Mesh( new THREE.BoxBufferGeometry( 0.01, 0.01, 0.01 ) );
+					var pivot = new THREE.Mesh( new THREE.IcosahedronBufferGeometry( 0.01, 2 ) );
 					pivot.name = 'pivot';
-					pivot.position.y = -0.016;
-					pivot.position.z = -0.043;
+					pivot.position.y = - 0.016;
+					pivot.position.z = - 0.043;
 					pivot.rotation.x = Math.PI / 5.5;
 					controller.add( pivot );
 
@@ -181,14 +155,6 @@
 
 					pivot.material = pivot.material.clone();
 					controller2.add( controller.clone() );
-
-				} );
-
-				WEBVR.getVRDisplay( function ( display ) {
-
-					renderer.vr.setDevice( display );
-
-					document.body.appendChild( WEBVR.getButton( display, renderer.domElement ) );
 
 				} );
 
@@ -227,7 +193,7 @@
 					path + 'pz' + format, path + 'nz' + format
 				];
 
-				var reflectionCube = new THREE.CubeTextureLoader().load( urls );
+				var reflectionCube = new CubeTextureLoader().load( urls );
 				*/
 
 				var material = new THREE.MeshStandardMaterial( {
@@ -245,23 +211,27 @@
 				scene.add( line );
 
 				// Shapes
-				shapes[ 'tube' ] = getTubeShapes(1.0);
+				shapes[ 'tube' ] = getTubeShapes( 1.0 );
+
 			}
 
-			function getTubeShapes(size) {
+			function getTubeShapes( size ) {
 
 				var PI2 = Math.PI * 2;
 
 				var sides = 10;
 				var array = [];
 				var radius = 0.01 * size;
-				for( var i = 0; i < sides; i ++ ){
+
+				for ( var i = 0; i < sides; i ++ ) {
 
 					var angle = ( i / sides ) * PI2;
 					array.push( new THREE.Vector3( Math.sin( angle ) * radius, Math.cos( angle ) * radius, 0 ) );
+
 				}
 
 				return array;
+
 			}
 
 
@@ -398,7 +368,7 @@
 				if ( pivot ) {
 
 					pivot.material.color.copy( controller.getColor() );
-					pivot.scale.setScalar(controller.getSize());
+					pivot.scale.setScalar( controller.getSize() );
 
 					var matrix = pivot.matrixWorld;
 
@@ -426,7 +396,7 @@
 
 			function animate() {
 
-				renderer.animate( render );
+				renderer.setAnimationLoop( render );
 
 			}
 

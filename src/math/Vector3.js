@@ -1,5 +1,4 @@
 import { _Math } from './Math.js';
-import { Matrix4 } from './Matrix4.js';
 import { Quaternion } from './Quaternion.js';
 
 /**
@@ -10,6 +9,8 @@ import { Quaternion } from './Quaternion.js';
  * @author egraether / http://egraether.com/
  * @author WestLangley / http://github.com/WestLangley
  */
+
+var _vector, _quaternion;
 
 function Vector3( x, y, z ) {
 
@@ -232,35 +233,27 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	applyEuler: function () {
+	applyEuler: function ( euler ) {
 
-		var quaternion = new Quaternion();
+		if ( _quaternion === undefined ) _quaternion = new Quaternion();
 
-		return function applyEuler( euler ) {
+		if ( ! ( euler && euler.isEuler ) ) {
 
-			if ( ! ( euler && euler.isEuler ) ) {
+			console.error( 'THREE.Vector3: .applyEuler() now expects an Euler rotation rather than a Vector3 and order.' );
 
-				console.error( 'THREE.Vector3: .applyEuler() now expects an Euler rotation rather than a Vector3 and order.' );
+		}
 
-			}
+		return this.applyQuaternion( _quaternion.setFromEuler( euler ) );
 
-			return this.applyQuaternion( quaternion.setFromEuler( euler ) );
+	},
 
-		};
+	applyAxisAngle: function ( axis, angle ) {
 
-	}(),
+		if ( _quaternion === undefined ) _quaternion = new Quaternion();
 
-	applyAxisAngle: function () {
+		return this.applyQuaternion( _quaternion.setFromAxisAngle( axis, angle ) );
 
-		var quaternion = new Quaternion();
-
-		return function applyAxisAngle( axis, angle ) {
-
-			return this.applyQuaternion( quaternion.setFromAxisAngle( axis, angle ) );
-
-		};
-
-	}(),
+	},
 
 	applyMatrix3: function ( m ) {
 
@@ -312,31 +305,17 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	project: function () {
+	project: function ( camera ) {
 
-		var matrix = new Matrix4();
+		return this.applyMatrix4( camera.matrixWorldInverse ).applyMatrix4( camera.projectionMatrix );
 
-		return function project( camera ) {
+	},
 
-			matrix.multiplyMatrices( camera.projectionMatrix, matrix.getInverse( camera.matrixWorld ) );
-			return this.applyMatrix4( matrix );
+	unproject: function ( camera ) {
 
-		};
+		return this.applyMatrix4( camera.projectionMatrixInverse ).applyMatrix4( camera.matrixWorld );
 
-	}(),
-
-	unproject: function () {
-
-		var matrix = new Matrix4();
-
-		return function unproject( camera ) {
-
-			matrix.multiplyMatrices( camera.matrixWorld, matrix.getInverse( camera.projectionMatrix ) );
-			return this.applyMatrix4( matrix );
-
-		};
-
-	}(),
+	},
 
 	transformDirection: function ( m ) {
 
@@ -402,21 +381,15 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	clampScalar: function () {
+	clampScalar: function ( minVal, maxVal ) {
 
-		var min = new Vector3();
-		var max = new Vector3();
+		this.x = Math.max( minVal, Math.min( maxVal, this.x ) );
+		this.y = Math.max( minVal, Math.min( maxVal, this.y ) );
+		this.z = Math.max( minVal, Math.min( maxVal, this.z ) );
 
-		return function clampScalar( minVal, maxVal ) {
+		return this;
 
-			min.set( minVal, minVal, minVal );
-			max.set( maxVal, maxVal, maxVal );
-
-			return this.clamp( min, max );
-
-		};
-
-	}(),
+	},
 
 	clampLength: function ( min, max ) {
 
@@ -496,7 +469,7 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	lengthManhattan: function () {
+	manhattanLength: function () {
 
 		return Math.abs( this.x ) + Math.abs( this.y ) + Math.abs( this.z );
 
@@ -539,13 +512,7 @@ Object.assign( Vector3.prototype, {
 
 		}
 
-		var x = this.x, y = this.y, z = this.z;
-
-		this.x = y * v.z - z * v.y;
-		this.y = z * v.x - x * v.z;
-		this.z = x * v.y - y * v.x;
-
-		return this;
+		return this.crossVectors( this, v );
 
 	},
 
@@ -570,34 +537,26 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	projectOnPlane: function () {
+	projectOnPlane: function ( planeNormal ) {
 
-		var v1 = new Vector3();
+		if ( _vector === undefined ) _vector = new Vector3();
 
-		return function projectOnPlane( planeNormal ) {
+		_vector.copy( this ).projectOnVector( planeNormal );
 
-			v1.copy( this ).projectOnVector( planeNormal );
+		return this.sub( _vector );
 
-			return this.sub( v1 );
+	},
 
-		};
+	reflect: function ( normal ) {
 
-	}(),
-
-	reflect: function () {
+		if ( _vector === undefined ) _vector = new Vector3();
 
 		// reflect incident vector off plane orthogonal to normal
 		// normal is assumed to have unit length
 
-		var v1 = new Vector3();
+		return this.sub( _vector.copy( normal ).multiplyScalar( 2 * this.dot( normal ) ) );
 
-		return function reflect( normal ) {
-
-			return this.sub( v1.copy( normal ).multiplyScalar( 2 * this.dot( normal ) ) );
-
-		};
-
-	}(),
+	},
 
 	angleTo: function ( v ) {
 
@@ -631,11 +590,17 @@ Object.assign( Vector3.prototype, {
 
 	setFromSpherical: function ( s ) {
 
-		var sinPhiRadius = Math.sin( s.phi ) * s.radius;
+		return this.setFromSphericalCoords( s.radius, s.phi, s.theta );
 
-		this.x = sinPhiRadius * Math.sin( s.theta );
-		this.y = Math.cos( s.phi ) * s.radius;
-		this.z = sinPhiRadius * Math.cos( s.theta );
+	},
+
+	setFromSphericalCoords: function ( radius, phi, theta ) {
+
+		var sinPhiRadius = Math.sin( phi ) * radius;
+
+		this.x = sinPhiRadius * Math.sin( theta );
+		this.y = Math.cos( phi ) * radius;
+		this.z = sinPhiRadius * Math.cos( theta );
 
 		return this;
 
@@ -643,9 +608,15 @@ Object.assign( Vector3.prototype, {
 
 	setFromCylindrical: function ( c ) {
 
-		this.x = c.radius * Math.sin( c.theta );
-		this.y = c.y;
-		this.z = c.radius * Math.cos( c.theta );
+		return this.setFromCylindricalCoords( c.radius, c.theta, c.y );
+
+	},
+
+	setFromCylindricalCoords: function ( radius, theta, y ) {
+
+		this.x = radius * Math.sin( theta );
+		this.y = y;
+		this.z = radius * Math.cos( theta );
 
 		return this;
 

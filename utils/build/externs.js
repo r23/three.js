@@ -3,5 +3,6 @@ var define;
 var module;
 var exports;
 var performance;
-var ImageBitmap;
+var createImageBitmap;
 var WebGL2RenderingContext;
+var XRWebGLLayer;
