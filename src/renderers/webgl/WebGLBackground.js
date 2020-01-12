@@ -60,7 +60,7 @@ function WebGLBackground( renderer, state, objects, premultipliedAlpha ) {
 
 		}
 
-		if ( background && ( background.isCubeTexture || background.isWebGLRenderTargetCube || background.mapping === CubeUVReflectionMapping ) ) {
+		if ( background && ( background.isCubeTexture || background.isWebGLCubeRenderTarget || background.mapping === CubeUVReflectionMapping ) ) {
 
 			if ( boxMesh === undefined ) {
 
@@ -88,11 +88,11 @@ function WebGLBackground( renderer, state, objects, premultipliedAlpha ) {
 				};
 
 				// enable code injection for non-built-in material
-				Object.defineProperty( boxMesh.material, 'map', {
+				Object.defineProperty( boxMesh.material, 'envMap', {
 
 					get: function () {
 
-						return this.envMap.value;
+						return this.uniforms.envMap.value;
 
 					}
 
@@ -102,8 +102,10 @@ function WebGLBackground( renderer, state, objects, premultipliedAlpha ) {
 
 			}
 
-			var texture = background.isWebGLRenderTargetCube ? background.texture : background;
-			boxMesh.material.envMap = texture;
+			var texture = background.isWebGLCubeRenderTarget ? background.texture : background;
+
+			boxMesh.material.uniforms.envMap.value = texture;
+			boxMesh.material.uniforms.flipEnvMap.value = texture.isCubeTexture ? - 1 : 1;
 
 			if ( currentBackground !== background ||
 			     currentBackgroundVersion !== texture.version ) {
