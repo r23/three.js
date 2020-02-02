@@ -284,9 +284,9 @@ function WebGLPrograms( renderer, extensions, capabilities ) {
 			extensionDrawbuffers: material.extensions && material.extensions.drawbuffers,
 			extensionShaderTextureLOD: material.extensions && material.extensions.shaderTextureLOD,
 
-			renderExtensionFragDepth: extensions.get( 'EXT_frag_depth' ) !== undefined,
-			renderExtensionDrawBuffers: extensions.get( 'WEBGL_draw_buffers' ) !== undefined,
-			renderExtensionShaderTextureLod: extensions.get( 'EXT_shader_texture_lod' ) !== undefined,
+			rendererExtensionFragDepth: isWebGL2 || extensions.get( 'EXT_frag_depth' ) !== null,
+			rendererExtensionDrawBuffers: isWebGL2 || extensions.get( 'WEBGL_draw_buffers' ) !== null,
+			rendererExtensionShaderTextureLod: isWebGL2 || extensions.get( 'EXT_shader_texture_lod' ) !== null,
 
 			onBeforeCompile: material.onBeforeCompile
 
