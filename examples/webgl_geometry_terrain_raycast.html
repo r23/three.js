@@ -103,14 +103,14 @@
 				helper = new THREE.Mesh( geometryHelper, new THREE.MeshNormalMaterial() );
 				scene.add( helper );
 
-				container.addEventListener( 'mousemove', onMouseMove, false );
+				container.addEventListener( 'mousemove', onMouseMove );
 
 				stats = new Stats();
 				container.appendChild( stats.dom );
 
 				//
 
-				window.addEventListener( 'resize', onWindowResize, false );
+				window.addEventListener( 'resize', onWindowResize );
 
 			}
 
