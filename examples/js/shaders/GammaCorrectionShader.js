@@ -1,43 +1,36 @@
-/**
+( function () {
+
+	/**
  * Gamma Correction Shader
  * http://en.wikipedia.org/wiki/gamma_correction
  */
+	const GammaCorrectionShader = {
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			}
+		},
+		vertexShader: `varying vec2 vUv;
 
-THREE.GammaCorrectionShader = {
+		void main() {
 
-	uniforms: {
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-		'tDiffuse': { value: null }
+		}`,
+		fragmentShader: `uniform sampler2D tDiffuse;
 
-	},
+		varying vec2 vUv;
 
-	vertexShader: [
+		void main() {
 
-		'varying vec2 vUv;',
+			vec4 tex = texture2D( tDiffuse, vUv );
 
-		'void main() {',
+			gl_FragColor = LinearTosRGB( tex ); // optional: LinearToGamma( tex, float( GAMMA_FACTOR ) );
 
-		'	vUv = uv;',
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+		}`
+	};
 
-		'}'
+	THREE.GammaCorrectionShader = GammaCorrectionShader;
 
-	].join( '\n' ),
-
-	fragmentShader: [
-
-		'uniform sampler2D tDiffuse;',
-
-		'varying vec2 vUv;',
-
-		'void main() {',
-
-		'	vec4 tex = texture2D( tDiffuse, vUv );',
-
-		'	gl_FragColor = LinearTosRGB( tex );', // optional: LinearToGamma( tex, float( GAMMA_FACTOR ) );
-
-		'}'
-
-	].join( '\n' )
-
-};
+} )();

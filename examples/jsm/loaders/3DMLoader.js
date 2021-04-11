@@ -24,62 +24,64 @@ import {
 	TextureLoader
 } from '../../../build/three.module.js';
 
-var Rhino3dmLoader = function ( manager ) {
+const _taskCache = new WeakMap();
 
-	Loader.call( this, manager );
+class Rhino3dmLoader extends Loader {
 
-	this.libraryPath = '';
-	this.libraryPending = null;
-	this.libraryBinary = null;
-	this.libraryConfig = {};
+	constructor( manager ) {
 
-	this.workerLimit = 4;
-	this.workerPool = [];
-	this.workerNextTaskID = 1;
-	this.workerSourceURL = '';
-	this.workerConfig = {};
+		super( manager );
 
-	this.materials = [];
+		this.libraryPath = '';
+		this.libraryPending = null;
+		this.libraryBinary = null;
+		this.libraryConfig = {};
 
-};
+		this.url = '';
 
-Rhino3dmLoader.taskCache = new WeakMap();
+		this.workerLimit = 4;
+		this.workerPool = [];
+		this.workerNextTaskID = 1;
+		this.workerSourceURL = '';
+		this.workerConfig = {};
 
-Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
+		this.materials = [];
 
-	constructor: Rhino3dmLoader,
+	}
 
-	setLibraryPath: function ( path ) {
+	setLibraryPath( path ) {
 
 		this.libraryPath = path;
 
 		return this;
 
-	},
+	}
 
-	setWorkerLimit: function ( workerLimit ) {
+	setWorkerLimit( workerLimit ) {
 
 		this.workerLimit = workerLimit;
 
 		return this;
 
-	},
+	}
 
-	load: function ( url, onLoad, onProgress, onError ) {
+	load( url, onLoad, onProgress, onError ) {
 
-		var loader = new FileLoader( this.manager );
+		const loader = new FileLoader( this.manager );
 
 		loader.setPath( this.path );
 		loader.setResponseType( 'arraybuffer' );
 		loader.setRequestHeader( this.requestHeader );
 
+		this.url = url;
+
 		loader.load( url, ( buffer ) => {
 
 			// Check for an existing task using this buffer. A transferred buffer cannot be transferred
 			// again from this thread.
-			if ( Rhino3dmLoader.taskCache.has( buffer ) ) {
+			if ( _taskCache.has( buffer ) ) {
 
-				var cachedTask = Rhino3dmLoader.taskCache.get( buffer );
+				const cachedTask = _taskCache.get( buffer );
 
 				return cachedTask.promise.then( onLoad ).catch( onError );
 
@@ -92,15 +94,15 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 		}, onProgress, onError );
 
 
-	},
+	}
 
-	debug: function () {
+	debug() {
 
 		console.log( 'Task load: ', this.workerPool.map( ( worker ) => worker._taskLoad ) );
 
-	},
+	}
 
-	decodeObjects: function ( buffer, url ) {
+	decodeObjects( buffer, url ) {
 
 		var worker;
 		var taskID;
@@ -143,7 +145,7 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 			} );
 
 		// Cache the task result.
-		Rhino3dmLoader.taskCache.set( buffer, {
+		_taskCache.set( buffer, {
 
 			url: url,
 			promise: objectPending
@@ -152,17 +154,17 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		return objectPending;
 
-	},
+	}
 
-	parse: function ( data, onLoad, onError ) {
+	parse( data, onLoad, onError ) {
 
 		this.decodeObjects( data, '' )
 			.then( onLoad )
 			.catch( onError );
 
-	},
+	}
 
-	_compareMaterials: function ( material ) {
+	_compareMaterials( material ) {
 
 		var mat = {};
 		mat.name = material.name;
@@ -195,9 +197,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		return material;
 
-	},
+	}
 
-	_createMaterial: function ( material ) {
+	_createMaterial( material ) {
 
 		if ( material === undefined ) {
 
@@ -277,9 +279,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		return mat;
 
-	},
+	}
 
-	_createGeometry: function ( data ) {
+	_createGeometry( data ) {
 
 		// console.log(data);
 
@@ -291,6 +293,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 		object.userData[ 'layers' ] = data.layers;
 		object.userData[ 'groups' ] = data.groups;
 		object.userData[ 'settings' ] = data.settings;
+		object.userData[ 'objectType' ] = 'File3dm';
+		object.userData[ 'materials' ] = null;
+		object.name = this.url;
 
 		var objects = data.objects;
 		var materials = data.materials;
@@ -316,9 +321,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 				default:
 
-					if ( attributes.hasOwnProperty( 'materialUUID' ) ) {
+					if ( attributes.materialIndex >= 0 ) {
 
-						var rMaterial = materials.find( m => m.id === attributes.materialUUID );
+						var rMaterial = materials[ attributes.materialIndex ];
 						var material = this._createMaterial( rMaterial );
 						material = this._compareMaterials( material );
 						var _object = this._createObject( obj, material );
@@ -410,13 +415,12 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		}
 
-		this.materials = [];
-
+		object.userData[ 'materials' ] = this.materials;
 		return object;
 
-	},
+	}
 
-	_createObject: function ( obj, mat ) {
+	_createObject( obj, mat ) {
 
 		var loader = new BufferGeometryLoader();
 
@@ -459,6 +463,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 			case 'Mesh':
 			case 'Extrusion':
 			case 'SubD':
+			case 'Brep':
+
+				if ( obj.geometry === null ) return;
 
 				var geometry = loader.parse( obj.geometry );
 
@@ -488,32 +495,6 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 				}
 
 				return mesh;
-
-			case 'Brep':
-
-				var brepObject = new Object3D();
-
-				for ( var j = 0; j < obj.geometry.length; j ++ ) {
-
-					geometry = loader.parse( obj.geometry[ j ] );
-					var mesh = new Mesh( geometry, mat );
-					mesh.castShadow = attributes.castsShadows;
-					mesh.receiveShadow = attributes.receivesShadows;
-
-					brepObject.add( mesh );
-
-				}
-
-				brepObject.userData[ 'attributes' ] = attributes;
-				brepObject.userData[ 'objectType' ] = obj.objectType;
-
-				if ( attributes.name ) {
-
-					brepObject.name = attributes.name;
-
-				}
-
-				return brepObject;
 
 			case 'Curve':
 
@@ -652,9 +633,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		}
 
-	},
+	}
 
-	_initLibrary: function () {
+	_initLibrary() {
 
 		if ( ! this.libraryPending ) {
 
@@ -683,7 +664,7 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 					//this.libraryBinary = binaryContent;
 					this.libraryConfig.wasmBinary = binaryContent;
 
-					var fn = Rhino3dmLoader.Rhino3dmWorker.toString();
+					var fn = Rhino3dmWorker.toString();
 
 					var body = [
 						'/* rhino3dm.js */',
@@ -700,9 +681,9 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		return this.libraryPending;
 
-	},
+	}
 
-	_getWorker: function ( taskCost ) {
+	_getWorker( taskCost ) {
 
 		return this._initLibrary().then( () => {
 
@@ -760,17 +741,17 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 		} );
 
-	},
+	}
 
-	_releaseTask: function ( worker, taskID ) {
+	_releaseTask( worker, taskID ) {
 
 		worker._taskLoad -= worker._taskCosts[ taskID ];
 		delete worker._callbacks[ taskID ];
 		delete worker._taskCosts[ taskID ];
 
-	},
+	}
 
-	dispose: function () {
+	dispose() {
 
 		for ( var i = 0; i < this.workerPool.length; ++ i ) {
 
@@ -784,11 +765,11 @@ Rhino3dmLoader.prototype = Object.assign( Object.create( Loader.prototype ), {
 
 	}
 
-} );
+}
 
 /* WEB WORKER */
 
-Rhino3dmLoader.Rhino3dmWorker = function () {
+function Rhino3dmWorker() {
 
 	var libraryPending;
 	var libraryConfig;
@@ -862,14 +843,7 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 			_object.delete();
 
-			if ( object !== undefined ) {
-
-				if ( object.attributes.materialIndex >= 0 ) {
-
-					var mId = doc.materials().findIndex( object.attributes.materialIndex ).id;
-					object.attributes.materialUUID = mId;
-
-				}
+			if ( object ) {
 
 				objects.push( object );
 
@@ -1165,17 +1139,17 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 			case rhino.ObjectType.Brep:
 
 				var faces = _geometry.faces();
-				geometry = [];
+				var mesh = new rhino.Mesh();
 
 				for ( var faceIndex = 0; faceIndex < faces.count; faceIndex ++ ) {
 
 					var face = faces.get( faceIndex );
-					var mesh = face.getMesh( rhino.MeshType.Any );
+					var _mesh = face.getMesh( rhino.MeshType.Any );
 
-					if ( mesh ) {
+					if ( _mesh ) {
 
-						geometry.push( mesh.toThreejsJSON() );
-						mesh.delete();
+						mesh.append( _mesh );
+						_mesh.delete();
 
 					}
 
@@ -1183,7 +1157,15 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 				}
 
-				faces.delete();
+				if ( mesh.faces().count > 0 ) {
+
+					mesh.compact();
+					geometry = mesh.toThreejsJSON();
+					faces.delete();
+
+				}
+
+				mesh.delete();
 
 				break;
 
@@ -1246,7 +1228,7 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 		}
 
-		if ( Array.isArray( geometry ) === false || geometry.length > 0 ) {
+		if ( geometry ) {
 
 			var attributes = extractProperties( _attributes );
 			attributes.geometry = extractProperties( _geometry );
@@ -1263,17 +1245,22 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 			}
 
+			if ( _geometry.userStringCount > 0 ) {
+
+				attributes.geometry.userStrings = _geometry.getUserStrings();
+
+			}
+
 			attributes.drawColor = _attributes.drawColor( doc );
 
 			objectType = objectType.constructor.name;
 			objectType = objectType.substring( 11, objectType.length );
-			attributes.geometry.objectType = objectType;
 
 			return { geometry, attributes, objectType };
 
 		} else {
 
-			console.warn( 'THREE.3DMLoader: Object has no mesh geometry. Consider opening this in Rhino, using a shaded display mode, and exporting again.' );
+			console.warn( `THREE.3DMLoader: ${objectType.constructor.name} has no associated mesh geometry.` );
 
 		}
 
@@ -1285,13 +1272,24 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 		for ( var property in object ) {
 
-			if ( typeof object[ property ] !== 'function' ) {
+			var value = object[ property ];
 
-				result[ property ] = object[ property ];
+			if ( typeof value !== 'function' ) {
+
+				if ( typeof value === 'object' && value !== null && value.hasOwnProperty( 'constructor' ) ) {
+
+					result[ property ] = { name: value.constructor.name, value: value.value };
+
+				} else {
+
+					result[ property ] = value;
+
+				}
 
 			} else {
 
-				// console.log( `${property}: ${object[ property ]}` );
+				// these are functions that could be called to extract more data.
+				//console.log( `${property}: ${object[ property ].constructor.name}` );
 
 			}
 
@@ -1384,7 +1382,7 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 			var tan = curve.tangentAt( t );
 			var prevTan = curve.tangentAt( ts.slice( - 1 )[ 0 ] );
 
-			// Duplicaated from THREE.Vector3
+			// Duplicated from THREE.Vector3
 			// How to pass imports to worker?
 
 			var tS = tan[ 0 ] * tan[ 0 ] + tan[ 1 ] * tan[ 1 ] + tan[ 2 ] * tan[ 2 ];
@@ -1416,6 +1414,6 @@ Rhino3dmLoader.Rhino3dmWorker = function () {
 
 	}
 
-};
+}
 
 export { Rhino3dmLoader };

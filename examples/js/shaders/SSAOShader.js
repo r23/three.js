@@ -1,293 +1,291 @@
-/**
+( function () {
+
+	/**
  * References:
  * http://john-chapman-graphics.blogspot.com/2013/01/ssao-tutorial.html
  * https://learnopengl.com/Advanced-Lighting/SSAO
  * https://github.com/McNopper/OpenGL/blob/master/Example28/shader/ssao.frag.glsl
  */
 
-THREE.SSAOShader = {
+	const SSAOShader = {
+		defines: {
+			'PERSPECTIVE_CAMERA': 1,
+			'KERNEL_SIZE': 32
+		},
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'tNormal': {
+				value: null
+			},
+			'tDepth': {
+				value: null
+			},
+			'tNoise': {
+				value: null
+			},
+			'kernel': {
+				value: null
+			},
+			'cameraNear': {
+				value: null
+			},
+			'cameraFar': {
+				value: null
+			},
+			'resolution': {
+				value: new THREE.Vector2()
+			},
+			'cameraProjectionMatrix': {
+				value: new THREE.Matrix4()
+			},
+			'cameraInverseProjectionMatrix': {
+				value: new THREE.Matrix4()
+			},
+			'kernelRadius': {
+				value: 8
+			},
+			'minDistance': {
+				value: 0.005
+			},
+			'maxDistance': {
+				value: 0.05
+			}
+		},
+		vertexShader: `varying vec2 vUv;
 
-	defines: {
-		'PERSPECTIVE_CAMERA': 1,
-		'KERNEL_SIZE': 32
-	},
+		void main() {
 
-	uniforms: {
+			vUv = uv;
 
-		'tDiffuse': { value: null },
-		'tNormal': { value: null },
-		'tDepth': { value: null },
-		'tNoise': { value: null },
-		'kernel': { value: null },
-		'cameraNear': { value: null },
-		'cameraFar': { value: null },
-		'resolution': { value: new THREE.Vector2() },
-		'cameraProjectionMatrix': { value: new THREE.Matrix4() },
-		'cameraInverseProjectionMatrix': { value: new THREE.Matrix4() },
-		'kernelRadius': { value: 8 },
-		'minDistance': { value: 0.005 },
-		'maxDistance': { value: 0.05 },
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-	},
+		}`,
+		fragmentShader: `uniform sampler2D tDiffuse;
+		uniform sampler2D tNormal;
+		uniform sampler2D tDepth;
+		uniform sampler2D tNoise;
 
-	vertexShader: [
+		uniform vec3 kernel[ KERNEL_SIZE ];
 
-		'varying vec2 vUv;',
+		uniform vec2 resolution;
 
-		'void main() {',
+		uniform float cameraNear;
+		uniform float cameraFar;
+		uniform mat4 cameraProjectionMatrix;
+		uniform mat4 cameraInverseProjectionMatrix;
 
-		'	vUv = uv;',
+		uniform float kernelRadius;
+		uniform float minDistance; // avoid artifacts caused by neighbour fragments with minimal depth difference
+		uniform float maxDistance; // avoid the influence of fragments which are too far away
 
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+		varying vec2 vUv;
 
-		'}'
+		#include <packing>
 
-	].join( '\n' ),
+		float getDepth( const in vec2 screenPosition ) {
 
-	fragmentShader: [
+			return texture2D( tDepth, screenPosition ).x;
 
-		'uniform sampler2D tDiffuse;',
-		'uniform sampler2D tNormal;',
-		'uniform sampler2D tDepth;',
-		'uniform sampler2D tNoise;',
+		}
 
-		'uniform vec3 kernel[ KERNEL_SIZE ];',
+		float getLinearDepth( const in vec2 screenPosition ) {
 
-		'uniform vec2 resolution;',
+			#if PERSPECTIVE_CAMERA == 1
 
-		'uniform float cameraNear;',
-		'uniform float cameraFar;',
-		'uniform mat4 cameraProjectionMatrix;',
-		'uniform mat4 cameraInverseProjectionMatrix;',
+				float fragCoordZ = texture2D( tDepth, screenPosition ).x;
+				float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+				return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
 
-		'uniform float kernelRadius;',
-		'uniform float minDistance;', // avoid artifacts caused by neighbour fragments with minimal depth difference
-		'uniform float maxDistance;', // avoid the influence of fragments which are too far away
+			#else
 
-		'varying vec2 vUv;',
+				return texture2D( tDepth, screenPosition ).x;
 
-		'#include <packing>',
+			#endif
 
-		'float getDepth( const in vec2 screenPosition ) {',
+		}
 
-		'	return texture2D( tDepth, screenPosition ).x;',
+		float getViewZ( const in float depth ) {
 
-		'}',
+			#if PERSPECTIVE_CAMERA == 1
 
-		'float getLinearDepth( const in vec2 screenPosition ) {',
+				return perspectiveDepthToViewZ( depth, cameraNear, cameraFar );
 
-		'	#if PERSPECTIVE_CAMERA == 1',
+			#else
 
-		'		float fragCoordZ = texture2D( tDepth, screenPosition ).x;',
-		'		float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );',
-		'		return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );',
+				return orthographicDepthToViewZ( depth, cameraNear, cameraFar );
 
-		'	#else',
+			#endif
 
-		'		return texture2D( tDepth, screenPosition ).x;',
+		}
 
-		'	#endif',
+		vec3 getViewPosition( const in vec2 screenPosition, const in float depth, const in float viewZ ) {
 
-		'}',
+			float clipW = cameraProjectionMatrix[2][3] * viewZ + cameraProjectionMatrix[3][3];
 
-		'float getViewZ( const in float depth ) {',
+			vec4 clipPosition = vec4( ( vec3( screenPosition, depth ) - 0.5 ) * 2.0, 1.0 );
 
-		'	#if PERSPECTIVE_CAMERA == 1',
+			clipPosition *= clipW; // unprojection.
 
-		'		return perspectiveDepthToViewZ( depth, cameraNear, cameraFar );',
+			return ( cameraInverseProjectionMatrix * clipPosition ).xyz;
 
-		'	#else',
+		}
 
-		'		return orthographicDepthToViewZ( depth, cameraNear, cameraFar );',
+		vec3 getViewNormal( const in vec2 screenPosition ) {
 
-		'	#endif',
+			return unpackRGBToNormal( texture2D( tNormal, screenPosition ).xyz );
 
-		'}',
+		}
 
-		'vec3 getViewPosition( const in vec2 screenPosition, const in float depth, const in float viewZ ) {',
+		void main() {
 
-		'	float clipW = cameraProjectionMatrix[2][3] * viewZ + cameraProjectionMatrix[3][3];',
+			float depth = getDepth( vUv );
+			float viewZ = getViewZ( depth );
 
-		'	vec4 clipPosition = vec4( ( vec3( screenPosition, depth ) - 0.5 ) * 2.0, 1.0 );',
+			vec3 viewPosition = getViewPosition( vUv, depth, viewZ );
+			vec3 viewNormal = getViewNormal( vUv );
 
-		'	clipPosition *= clipW; // unprojection.',
+			vec2 noiseScale = vec2( resolution.x / 4.0, resolution.y / 4.0 );
+			vec3 random = texture2D( tNoise, vUv * noiseScale ).xyz;
 
-		'	return ( cameraInverseProjectionMatrix * clipPosition ).xyz;',
+			// compute matrix used to reorient a kernel vector
 
-		'}',
+			vec3 tangent = normalize( random - viewNormal * dot( random, viewNormal ) );
+			vec3 bitangent = cross( viewNormal, tangent );
+			mat3 kernelMatrix = mat3( tangent, bitangent, viewNormal );
 
-		'vec3 getViewNormal( const in vec2 screenPosition ) {',
+		 float occlusion = 0.0;
 
-		'	return unpackRGBToNormal( texture2D( tNormal, screenPosition ).xyz );',
+		 for ( int i = 0; i < KERNEL_SIZE; i ++ ) {
 
-		'}',
+				vec3 sampleVector = kernelMatrix * kernel[ i ]; // reorient sample vector in view space
+				vec3 samplePoint = viewPosition + ( sampleVector * kernelRadius ); // calculate sample point
 
-		'void main() {',
+				vec4 samplePointNDC = cameraProjectionMatrix * vec4( samplePoint, 1.0 ); // project point and calculate NDC
+				samplePointNDC /= samplePointNDC.w;
 
-		'	float depth = getDepth( vUv );',
-		'	float viewZ = getViewZ( depth );',
+				vec2 samplePointUv = samplePointNDC.xy * 0.5 + 0.5; // compute uv coordinates
 
-		'	vec3 viewPosition = getViewPosition( vUv, depth, viewZ );',
-		'	vec3 viewNormal = getViewNormal( vUv );',
+				float realDepth = getLinearDepth( samplePointUv ); // get linear depth from depth texture
+				float sampleDepth = viewZToOrthographicDepth( samplePoint.z, cameraNear, cameraFar ); // compute linear depth of the sample view Z value
+				float delta = sampleDepth - realDepth;
 
-		' vec2 noiseScale = vec2( resolution.x / 4.0, resolution.y / 4.0 );',
-		'	vec3 random = texture2D( tNoise, vUv * noiseScale ).xyz;',
+				if ( delta > minDistance && delta < maxDistance ) { // if fragment is before sample point, increase occlusion
 
-		// compute matrix used to reorient a kernel vector
+					occlusion += 1.0;
 
-		'	vec3 tangent = normalize( random - viewNormal * dot( random, viewNormal ) );',
-		'	vec3 bitangent = cross( viewNormal, tangent );',
-		'	mat3 kernelMatrix = mat3( tangent, bitangent, viewNormal );',
+				}
 
-		' float occlusion = 0.0;',
+			}
 
-		' for ( int i = 0; i < KERNEL_SIZE; i ++ ) {',
+			occlusion = clamp( occlusion / float( KERNEL_SIZE ), 0.0, 1.0 );
 
-		'		vec3 sampleVector = kernelMatrix * kernel[ i ];', // reorient sample vector in view space
-		'		vec3 samplePoint = viewPosition + ( sampleVector * kernelRadius );', // calculate sample point
+			gl_FragColor = vec4( vec3( 1.0 - occlusion ), 1.0 );
 
-		'		vec4 samplePointNDC = cameraProjectionMatrix * vec4( samplePoint, 1.0 );', // project point and calculate NDC
-		'		samplePointNDC /= samplePointNDC.w;',
+		}`
+	};
+	const SSAODepthShader = {
+		defines: {
+			'PERSPECTIVE_CAMERA': 1
+		},
+		uniforms: {
+			'tDepth': {
+				value: null
+			},
+			'cameraNear': {
+				value: null
+			},
+			'cameraFar': {
+				value: null
+			}
+		},
+		vertexShader: `varying vec2 vUv;
 
-		'		vec2 samplePointUv = samplePointNDC.xy * 0.5 + 0.5;', // compute uv coordinates
+		void main() {
 
-		'		float realDepth = getLinearDepth( samplePointUv );', // get linear depth from depth texture
-		'		float sampleDepth = viewZToOrthographicDepth( samplePoint.z, cameraNear, cameraFar );', // compute linear depth of the sample view Z value
-		'		float delta = sampleDepth - realDepth;',
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-		'		if ( delta > minDistance && delta < maxDistance ) {', // if fragment is before sample point, increase occlusion
+		}`,
+		fragmentShader: `uniform sampler2D tDepth;
 
-		'			occlusion += 1.0;',
+		uniform float cameraNear;
+		uniform float cameraFar;
 
-		'		}',
+		varying vec2 vUv;
 
-		'	}',
+		#include <packing>
 
-		'	occlusion = clamp( occlusion / float( KERNEL_SIZE ), 0.0, 1.0 );',
+		float getLinearDepth( const in vec2 screenPosition ) {
 
-		'	gl_FragColor = vec4( vec3( 1.0 - occlusion ), 1.0 );',
+			#if PERSPECTIVE_CAMERA == 1
 
-		'}'
+				float fragCoordZ = texture2D( tDepth, screenPosition ).x;
+				float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+				return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
 
-	].join( '\n' )
+			#else
 
-};
+				return texture2D( tDepth, screenPosition ).x;
 
-THREE.SSAODepthShader = {
+			#endif
 
-	defines: {
-		'PERSPECTIVE_CAMERA': 1
-	},
+		}
 
-	uniforms: {
+		void main() {
 
-		'tDepth': { value: null },
-		'cameraNear': { value: null },
-		'cameraFar': { value: null },
+			float depth = getLinearDepth( vUv );
+			gl_FragColor = vec4( vec3( 1.0 - depth ), 1.0 );
 
-	},
+		}`
+	};
+	const SSAOBlurShader = {
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'resolution': {
+				value: new THREE.Vector2()
+			}
+		},
+		vertexShader: `varying vec2 vUv;
 
-	vertexShader: [
+		void main() {
 
-		'varying vec2 vUv;',
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-		'void main() {',
+		}`,
+		fragmentShader: `uniform sampler2D tDiffuse;
 
-		'	vUv = uv;',
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+		uniform vec2 resolution;
 
-		'}'
+		varying vec2 vUv;
 
-	].join( '\n' ),
+		void main() {
 
-	fragmentShader: [
+			vec2 texelSize = ( 1.0 / resolution );
+			float result = 0.0;
 
-		'uniform sampler2D tDepth;',
+			for ( int i = - 2; i <= 2; i ++ ) {
 
-		'uniform float cameraNear;',
-		'uniform float cameraFar;',
+				for ( int j = - 2; j <= 2; j ++ ) {
 
-		'varying vec2 vUv;',
+					vec2 offset = ( vec2( float( i ), float( j ) ) ) * texelSize;
+					result += texture2D( tDiffuse, vUv + offset ).r;
 
-		'#include <packing>',
+				}
 
-		'float getLinearDepth( const in vec2 screenPosition ) {',
+			}
 
-		'	#if PERSPECTIVE_CAMERA == 1',
+			gl_FragColor = vec4( vec3( result / ( 5.0 * 5.0 ) ), 1.0 );
 
-		'		float fragCoordZ = texture2D( tDepth, screenPosition ).x;',
-		'		float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );',
-		'		return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );',
+		}`
+	};
 
-		'	#else',
+	THREE.SSAOBlurShader = SSAOBlurShader;
+	THREE.SSAODepthShader = SSAODepthShader;
+	THREE.SSAOShader = SSAOShader;
 
-		'		return texture2D( tDepth, screenPosition ).x;',
-
-		'	#endif',
-
-		'}',
-
-		'void main() {',
-
-		'	float depth = getLinearDepth( vUv );',
-		'	gl_FragColor = vec4( vec3( 1.0 - depth ), 1.0 );',
-
-		'}'
-
-	].join( '\n' )
-
-};
-
-THREE.SSAOBlurShader = {
-
-	uniforms: {
-
-		'tDiffuse': { value: null },
-		'resolution': { value: new THREE.Vector2() }
-
-	},
-
-	vertexShader: [
-
-		'varying vec2 vUv;',
-
-		'void main() {',
-
-		'	vUv = uv;',
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-
-		'}'
-
-	].join( '\n' ),
-
-	fragmentShader: [
-
-		'uniform sampler2D tDiffuse;',
-
-		'uniform vec2 resolution;',
-
-		'varying vec2 vUv;',
-
-		'void main() {',
-
-		'	vec2 texelSize = ( 1.0 / resolution );',
-		'	float result = 0.0;',
-
-		'	for ( int i = - 2; i <= 2; i ++ ) {',
-
-		'		for ( int j = - 2; j <= 2; j ++ ) {',
-
-		'			vec2 offset = ( vec2( float( i ), float( j ) ) ) * texelSize;',
-		'			result += texture2D( tDiffuse, vUv + offset ).r;',
-
-		'		}',
-
-		'	}',
-
-		'	gl_FragColor = vec4( vec3( result / ( 5.0 * 5.0 ) ), 1.0 );',
-
-		'}'
-
-	].join( '\n' )
-
-};
+} )();

@@ -1,29 +1,22 @@
-/**
+( function () {
+
+	/**
  * Simple test shader
  */
+	const BasicShader = {
+		uniforms: {},
+		vertexShader: `void main() {
 
-THREE.BasicShader = {
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-	uniforms: {},
+		}`,
+		fragmentShader: `void main() {
 
-	vertexShader: [
+			gl_FragColor = vec4( 1.0, 0.0, 0.0, 0.5 );
 
-		'void main() {',
+		}`
+	};
 
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+	THREE.BasicShader = BasicShader;
 
-		'}'
-
-	].join( '\n' ),
-
-	fragmentShader: [
-
-		'void main() {',
-
-		'	gl_FragColor = vec4( 1.0, 0.0, 0.0, 0.5 );',
-
-		'}'
-
-	].join( '\n' )
-
-};
+} )();
