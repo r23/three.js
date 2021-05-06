@@ -42,7 +42,7 @@ import {
 	VectorKeyframeTrack,
 	sRGBEncoding
 } from '../../../build/three.module.js';
-import * as fflate from '../libs/fflate.module.min.js';
+import * as fflate from '../libs/fflate.module.js';
 import { NURBSCurve } from '../curves/NURBSCurve.js';
 
 /**
@@ -1260,12 +1260,6 @@ class FBXTreeParser {
 		}
 
 		if ( geometry.FBX_Deformer ) {
-
-			materials.forEach( function ( material ) {
-
-				material.skinning = true;
-
-			} );
 
 			model = new SkinnedMesh( geometry, material );
 			model.normalizeSkinWeights();
