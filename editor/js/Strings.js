@@ -243,6 +243,7 @@ function Strings( config ) {
 			'sidebar/material/roughness': 'Roughness',
 			'sidebar/material/metalness': 'Metalness',
 			'sidebar/material/sheen': 'Sheen',
+			'sidebar/material/transmission': 'Transmission',
 			'sidebar/material/emissive': 'Emissive',
 			'sidebar/material/specular': 'Specular',
 			'sidebar/material/shininess': 'Shininess',
@@ -310,7 +311,6 @@ function Strings( config ) {
 
 			'sidebar/settings': 'Settings',
 			'sidebar/settings/language': 'Language',
-			'sidebar/settings/exportPrecision': 'Export Precision',
 
 			'sidebar/settings/shortcuts': 'Shortcuts',
 			'sidebar/settings/shortcuts/translate': 'Translate',
@@ -577,6 +577,7 @@ function Strings( config ) {
 			'sidebar/material/roughness': 'Rugosité',
 			'sidebar/material/metalness': 'Métal',
 			'sidebar/material/sheen': 'Éclat',
+			'sidebar/material/transmission': 'Transmission',
 			'sidebar/material/emissive': 'Émissif',
 			'sidebar/material/specular': 'Spéculaire',
 			'sidebar/material/shininess': 'Brillance',
@@ -644,7 +645,6 @@ function Strings( config ) {
 
 			'sidebar/settings': 'Paramètres',
 			'sidebar/settings/language': 'Langue',
-			'sidebar/settings/exportPrecision': 'Précision à l\'exportation',
 
 			'sidebar/settings/shortcuts': 'Shortcuts',
 			'sidebar/settings/shortcuts/translate': 'Position',
@@ -907,15 +907,16 @@ function Strings( config ) {
 			'sidebar/material/vertex': '顶点',
 			'sidebar/material/fragment': '片元',
 			'sidebar/material/color': '颜色',
-			'sidebar/material/depthPacking': 'Depth Packing',
+			'sidebar/material/depthPacking': '深度包装',
 			'sidebar/material/roughness': '粗糙度',
 			'sidebar/material/metalness': '金属度',
 			'sidebar/material/sheen': '光泽',
+			'sidebar/material/transmission': '透射',
 			'sidebar/material/emissive': '自发光',
 			'sidebar/material/specular': '高光',
 			'sidebar/material/shininess': '高光大小',
-			'sidebar/material/clearcoat': '透明图层',
-			'sidebar/material/clearcoatroughness': '透明图层粗糙度',
+			'sidebar/material/clearcoat': '清漆',
+			'sidebar/material/clearcoatroughness': '清漆粗糙度',
 			'sidebar/material/vertexcolors': '顶点颜色',
 			'sidebar/material/vertextangents': '顶点切线',
 			'sidebar/material/matcap': '材质捕获',
@@ -923,7 +924,7 @@ function Strings( config ) {
 			'sidebar/material/alphamap': '透明贴图',
 			'sidebar/material/bumpmap': '凹凸贴图',
 			'sidebar/material/normalmap': '法线贴图',
-			'sidebar/material/clearcoatnormalmap': '透明图层法线贴图',
+			'sidebar/material/clearcoatnormalmap': '清漆法线贴图',
 			'sidebar/material/displacemap': '置换贴图',
 			'sidebar/material/roughmap': '粗糙贴图',
 			'sidebar/material/metalmap': '金属贴图',
@@ -978,7 +979,6 @@ function Strings( config ) {
 
 			'sidebar/settings': '设置',
 			'sidebar/settings/language': '语言',
-			'sidebar/settings/exportPrecision': '输出精度',
 
 			'sidebar/settings/shortcuts': '快捷键',
 			'sidebar/settings/shortcuts/translate': '移动',
